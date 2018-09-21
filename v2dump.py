@@ -1,3 +1,4 @@
+#!/usr/bin/pyhon3
 # v2dump.py 20100914
 # Author: Peter Sovietov
 
@@ -7,50 +8,48 @@ Prefix = ''
 
 
 def dw(buf, d):
-    return (ord(buf[d + 3]) << 24) | (ord(buf[d + 2]) << 16)| \
-           (ord(buf[d + 1]) << 8) | ord(buf[d])
+    return (buf[d + 3] << 24) | buf[d + 2] << 16 | (buf[d + 1] << 8) | buf[d]
 
 def delta(buf, d, num):
-    return ord(buf[d]) | (ord(buf[d + num]) << 8) | \
-            (ord(buf[d + 2 * num]) << 16)
+    return buf[d] | buf[d + num] << 8 | buf[d + 2 * num] << 16
 
 def nt(c, buf, d, num):
     r = []
     t = p = v = 0
-    for i in range(d, d + num):        
+    for i in range(d, d + num):
         t += delta(buf, i, num)
-        p = (p + ord(buf[i + 3 * num])) & 0xff
-        v = (v + ord(buf[i + 4 * num])) & 0xff
+        p = (p + buf[i + 3 * num]) & 0xff
+        v = (v + buf[i + 4 * num]) & 0xff
         r += [(t, chr(0x90 | c) + chr(p) + chr(v))]
-    return r  
+    return r
 
 def pc(c, buf, d, num):
     r = []
     t = p = 0
-    for i in range(d, d + num):        
+    for i in range(d, d + num):
         t += delta(buf, i, num)
-        p = (p + ord(buf[i + 3 * num])) & 0xff
+        p = (p + buf[i + 3 * num]) & 0xff
         r += [(t, chr(0xc0 | c) + chr(p))]
-    return r  
+    return r
 
 def pb(c, buf, d, num):
     r = []
     t = p0 = p1 = 0
-    for i in range(d, d + num):        
+    for i in range(d, d + num):
         t += delta(buf, i, num)
-        p0 = (p0 + ord(buf[i + 3 * num])) & 0xff
-        p1 = (p1 + ord(buf[i + 4 * num])) & 0xff
+        p0 = (p0 + buf[i + 3 * num]) & 0xff
+        p1 = (p1 + buf[i + 4 * num]) & 0xff
         r += [(t, chr(0xe0 | c) + chr(p0) + chr(p1))]
-    return r  
+    return r
 
 def cc(c, n, buf, d, num):
     r = []
     t = p = 0
-    for i in range(d, d + num):        
+    for i in range(d, d + num):
         t += delta(buf, i, num)
-        p = (p + ord(buf[i + 3 * num])) & 0xff
+        p = (p + buf[i + 3 * num]) & 0xff
         r += [(t, chr(0xb0 | c) + chr(n + 1) + chr(p))]
-    return r  
+    return r
 
 def v2dump(buf):
     d = 0
@@ -78,7 +77,7 @@ def v2dump(buf):
             d += 5 * pbnum
             for j in range(7):
                 ccnum = dw(buf, d)
-                d += 4               
+                d += 4
                 v2[i][j] = cc(i, j, buf, d, ccnum)
                 d += 4 * ccnum
     size = dw(buf, d)
@@ -97,6 +96,7 @@ def v2load(name):
     return v2dump(buf)
 
 def save(name, buf):
+#    print "OPEN:", Prefix + name
     f = open(Prefix + name, 'wb')
     f.write(buf)
     f.close()
@@ -109,7 +109,7 @@ def miditrack(c, mt):
     r = ''
     t = 0
     s = sorted(c['pcptr'] + c[0] + c[1] + c[2] + c[3] + c[4] + c[5] + c[6] + \
-         c['pbptr'] + c['noteptr'])  
+         c['pbptr'] + c['noteptr'])
     for e in s:
         if e[0] > mt:
             break
@@ -131,7 +131,8 @@ def save_midifile(v2):
 
 def save_patch(i, buf):
     name = 'v2p1' + Prefix + str(i)
-    buf = name + '\0' * (36 - len(name)) + '\6\0\0\0' + buf
+#    buf = name + '\0' * (36 - len(name)) + '\6\0\0\0' + buf
+    buf = name + '\0' * (36 - len(name)) + '\6\0\0\0' + buf.tostring()
     buf += '\0' * (895 - len(buf))
     save('_' + str(i) + '.v2p', buf)
 
@@ -147,12 +148,16 @@ def save_patchmap(buf):
     save_patch(i / 4, buf[begin:])
 
 
-if len(sys.argv) != 2:
-    print 'v2dump by Peter Sovietov\nUsage: v2dump file.v2m'
+if len(sys.argv) != 2 and len(sys.argv) != 3:
+    print('v2dump by Peter Sovietov\nUsage: v2dump file.v2m [outfile]')
     sys.exit()
 
 name = sys.argv[1]
-Prefix = name.lower().replace('.v2m', '')
+if len(sys.argv) == 3:
+    Prefix = (sys.argv[2]).replace('.v2m', '')
+else:
+    Prefix = name.replace('.v2m', '')
+print (Prefix)
 v2 = v2load(name)
 save_midifile(v2)
 save_patchmap(v2['patchmap'])
